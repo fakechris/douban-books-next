@@ -1,6 +1,22 @@
 # Web App
 
-Initial frontend direction: a dense shelf-management UI for a very large library.
+This directory contains the imported interactive prototype for the rebuilt
+WeRead/Douban bookshelf workspace. It is currently a static React prototype
+using browser-loaded React/Babel so designers can review and iterate without a
+build step.
+
+## Run Locally
+
+From this directory:
+
+```bash
+python3 -m http.server 5173
+```
+
+Then open `http://localhost:5173`.
+
+Do not open `index.html` directly from the filesystem for review. The prototype
+loads JSX files dynamically, so serving it over HTTP is more reliable.
 
 ## Primary Screens
 
@@ -41,3 +57,14 @@ Primary columns:
 - Do not hide sync errors.
 - Use drawer navigation instead of full page jumps for book inspection.
 
+## Prototype Coverage
+
+The imported prototype covers:
+
+- shelf search, saved views, filters, sorting, table/grid modes
+- manual tags, imported tags, system tags, price tags, workflow tags
+- purchase and price watch areas
+- Douban match review states
+- cross-platform badges for WeRead, Douban, JD Read, and Zhangyue
+- detail drawer with source evidence, data quality, collections, and Chat context
+- floating Chat workspace and full Chat screen
