@@ -1,0 +1,65 @@
+# WeRead Next
+
+`weread-next` is a clean rebuild of the WeRead/Douban bookshelf product.
+The legacy `books/` application remains available as a data source, migration
+reference, and operational fallback, but new product work should happen here.
+
+## Product Center
+
+The rebuilt product is shelf-first:
+
+- current WeRead shelf as the primary home view
+- booklists, archives, albums, and reading progress as first-class filters
+- fast search over title, author, translator, category, publisher, and notes
+- price, purchase, membership, shelf status, rating, and reading-state sorting
+- explicit sync runs with raw payload preservation before projection
+
+## Directory Layout
+
+```text
+weread-next/
+  apps/
+    api/      Backend service boundary and API contract
+    web/      Frontend product shell and interaction model
+  docs/
+    architecture.md
+    data-mapping.md
+    sync-design.md
+    product-scope.md
+  packages/
+    shared/   Shared DTO and schema definitions
+```
+
+## Current Data Sources
+
+The new system reads from PostgreSQL, not directly from legacy MySQL, MongoDB,
+or Elasticsearch.
+
+Primary tables already available:
+
+- `weread_items`
+- `source_records`
+- `booklists`
+- `booklist_items`
+- `purchase_history`
+- `books`
+- `editions`
+- `external_ids`
+- `contributors`
+- `edition_contributors`
+- `book_matches`
+
+Current shelf sync source:
+
+- `weread_mobile / shelf/sync-onlyBookid`: current shelf IDs and archive membership
+- `weread_mobile / shelf/syncbook`: current shelf metadata details
+- `weread_mobile / shelf/sync`: progress, albums, archives, and `mp`
+- `weread_web / notebook`: notebook books
+
+## First Build Milestone
+
+1. Backend read API for shelf list, filters, sorting, search, and sync status.
+2. Frontend shelf table/grid with dense operational controls.
+3. Detail drawer for book metadata, purchase state, reading state, matches, and raw evidence.
+4. Manual sync trigger that stores raw payloads first, then projects.
+

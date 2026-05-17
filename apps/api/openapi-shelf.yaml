@@ -1,0 +1,157 @@
+openapi: 3.1.0
+info:
+  title: WeRead Next API
+  version: 0.1.0
+paths:
+  /api/shelf:
+    get:
+      summary: Query current shelf items
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: media
+          in: query
+          schema:
+            enum: [ebook, audiobook, article]
+        - name: paid
+          in: query
+          schema:
+            type: boolean
+        - name: soldout
+          in: query
+          schema:
+            type: boolean
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            enum: [readUpdateTime, updateTime, price, rating, ratingCount, title, author, totalWords]
+            default: readUpdateTime
+        - name: direction
+          in: query
+          schema:
+            enum: [asc, desc]
+            default: desc
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 500
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shelf page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ShelfItem"
+                  nextCursor:
+                    type: string
+                    nullable: true
+  /api/shelf/stats:
+    get:
+      summary: Current shelf aggregate stats
+      responses:
+        "200":
+          description: Shelf stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShelfStats"
+  /api/shelf/{wereadBookId}:
+    get:
+      summary: Shelf item detail
+      parameters:
+        - name: wereadBookId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shelf item detail with evidence links
+components:
+  schemas:
+    ShelfItem:
+      type: object
+      required: [wereadBookId, medium, title]
+      properties:
+        wereadBookId:
+          type: string
+        medium:
+          enum: [ebook, audiobook]
+        title:
+          type: string
+        authorText:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        coverUrl:
+          type: string
+          nullable: true
+        price:
+          type: number
+          nullable: true
+        paid:
+          type: boolean
+          nullable: true
+        soldout:
+          type: boolean
+          nullable: true
+        rating:
+          type: number
+          nullable: true
+        ratingCount:
+          type: integer
+          nullable: true
+        readUpdateTime:
+          type: string
+          format: date-time
+          nullable: true
+        updateTime:
+          type: string
+          format: date-time
+          nullable: true
+        ownershipState:
+          enum: [paid, unpaid_or_membership, unavailable, unknown]
+    ShelfStats:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+        ebookCount:
+          type: integer
+        audiobookCount:
+          type: integer
+        paidCount:
+          type: integer
+        unpaidCount:
+          type: integer
+        soldoutCount:
+          type: integer
+        hasReadProgressCount:
+          type: integer
+        placeholderArticleCount:
+          type: integer
+        lastProjectedAt:
+          type: string
+          format: date-time
+          nullable: true
+
