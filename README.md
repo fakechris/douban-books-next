@@ -24,11 +24,18 @@ weread-next/
   docs/
     architecture.md
     data-mapping.md
+    product-ux-requirements.md
     sync-design.md
     product-scope.md
   packages/
     shared/   Shared DTO and schema definitions
 ```
+
+## Product Requirements
+
+Start with [`docs/product-ux-requirements.md`](docs/product-ux-requirements.md)
+for the user stories, use cases, information architecture, search requirements,
+tagging model, collection model, operation toolbar, and first-milestone scope.
 
 ## Current Data Sources
 
@@ -62,4 +69,3 @@ Current shelf sync source:
 2. Frontend shelf table/grid with dense operational controls.
 3. Detail drawer for book metadata, purchase state, reading state, matches, and raw evidence.
 4. Manual sync trigger that stores raw payloads first, then projects.
-
