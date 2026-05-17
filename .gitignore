@@ -27,3 +27,5 @@ backup/
 
 *.ipynb_checkpoints/
 *.log
+
+.superpowers/
