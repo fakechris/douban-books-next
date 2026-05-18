@@ -22,30 +22,59 @@ const SavedViewTabs = ({ views, active, onSelect }) => (
 );
 
 /* ----- Filter row ------------------------------------------------------ */
-const ACTIVE_FILTERS = [
-  { id: "paid",   k: "已购",   v: "true",         active: true },
-  { id: "price",  k: "价格",   v: "≤ ¥30",        active: true },
-  { id: "state",  k: "阅读",   v: "未完成",        active: true },
-  { id: "match",  k: "豆瓣匹配", v: "已确认",       active: false },
-  { id: "tag",    k: "tag",   v: "AI",           active: false },
+const FILTER_DEFS = [
+  { id: "paid",   k: "已购",     v: "true" },
+  { id: "price",  k: "价格",     v: "≤ ¥30" },
+  { id: "state",  k: "阅读",     v: "未完成" },
+  { id: "match",  k: "豆瓣匹配", v: "已确认" },
+  { id: "tag",    k: "tag",      v: "AI" },
+  { id: "watch",  k: "标记",     v: "价格/购买关注" },
+  { id: "quality",k: "质量",     v: "缺失/冲突" },
+  { id: "platform",k:"平台",     v: "京东/掌阅可用" },
 ];
 
-const FilterRow = () => (
+const VIEW_FILTERS = {
+  "v-all":      [],
+  "v-now":      ["state"],
+  "v-cheap":    ["paid", "price", "state"],
+  "v-watch":    ["watch"],
+  "v-q":        ["quality"],
+  "v-ai":       ["tag"],
+};
+
+const filterBooksByIds = (books, ids) => books.filter(b => {
+  const checks = {
+    paid:     b.paid === true,
+    price:    b.price <= 30,
+    state:    b.readState !== "finished",
+    match:    b.match === "confirmed" || b.match === "imported",
+    tag:      (b.tags || []).some(t => t.id === "ai" || t.name === "AI"),
+    watch:    (b.marks || []).includes("watch") || (b.tags || []).some(t => t.id === "watch" || t.id === "wantbuy"),
+    quality:  ["missing", "conflict", "candidate", "review"].includes(b.match) || (b.conflicts || []).length > 0 || b.words === 0 || b.weReadRating === 0,
+    platform: b.platforms?.j || b.platforms?.z,
+  };
+  return ids.every(id => checks[id]);
+});
+
+const FilterRow = ({ activeFilters, toggleFilter }) => (
   <div className="fr">
     <span style={{ color: "var(--mid)", fontSize: 11.5, marginRight: 4, display: "inline-flex", alignItems: "center", gap: 4 }}>
       <Icon n="filter" s={12} /> Filters
     </span>
-    {ACTIVE_FILTERS.map(f => (
+    {FILTER_DEFS.map(f => {
+      const active = activeFilters.includes(f.id);
+      return (
       <button
         key={f.id}
-        className={"fr__chip" + (f.active ? " fr__chip--active" : "")}
+        className={"fr__chip" + (active ? " fr__chip--active" : "")}
+        onClick={() => toggleFilter(f.id)}
       >
         <span className="fr__chip-k">{f.k}</span>
         <span className="fr__chip-v">{f.v}</span>
-        {f.active && <span className="fr__chip-x"><Icon n="close" s={10} /></span>}
+        {active && <span className="fr__chip-x"><Icon n="close" s={10} /></span>}
       </button>
-    ))}
-    <button className="fr__add">
+    );})}
+    <button className="fr__add" onClick={() => toggleFilter("quality")}>
       <Icon n="plus" s={11} /> 添加筛选
     </button>
     <span className="fr__sep" />
@@ -62,7 +91,7 @@ const FilterRow = () => (
 );
 
 /* ----- Operation toolbar ---------------------------------------------- */
-const OperationToolbar = ({ selected, totalShown, total, layout, setLayout, onClear }) => (
+const OperationToolbar = ({ selected, totalShown, total, layout, setLayout, onClear, onAction }) => (
   <div className="op">
     <span className="op__count">
       <strong>{totalShown.toLocaleString()}</strong> <span style={{ color: "var(--mid)", fontWeight: 400 }}>· 共 {total.toLocaleString()} 本</span>
@@ -77,18 +106,18 @@ const OperationToolbar = ({ selected, totalShown, total, layout, setLayout, onCl
 
     {selected > 0 ? (
       <>
-        <button className="btn btn--sm"><Icon n="tag" s={11} /> 编辑标签</button>
-        <button className="btn btn--sm"><Icon n="flag" s={11} /> 添加标记</button>
-        <button className="btn btn--sm"><Icon n="folder" s={11} /> 加入集合</button>
-        <button className="btn btn--sm"><Icon n="sparkle" s={11} /> 询问 LLM</button>
-        <button className="btn btn--sm"><Icon n="wand" s={11} /> 补全元数据</button>
-        <button className="btn btn--sm"><Icon n="link" s={11} /> 对比豆瓣候选</button>
+        <button className="btn btn--sm" onClick={() => onAction("已打开批量标签操作：会向选中书目添加/移除 manual tag")}><Icon n="tag" s={11} /> 编辑标签</button>
+        <button className="btn btn--sm" onClick={() => onAction("已准备添加特殊标记：购买关注 / 价格关注 / 待补全")}><Icon n="flag" s={11} /> 添加标记</button>
+        <button className="btn btn--sm" onClick={() => onAction("已准备加入集合：微信书单、桌面目录或保存视图")}><Icon n="folder" s={11} /> 加入集合</button>
+        <button className="btn btn--sm" onClick={() => onAction("Chat 范围已切到选中书目，可请求总结、打标或比较")}><Icon n="sparkle" s={11} /> 询问 LLM</button>
+        <button className="btn btn--sm" onClick={() => onAction("元数据补全会先写入 source_records，再投影到列表字段")}><Icon n="wand" s={11} /> 补全元数据</button>
+        <button className="btn btn--sm" onClick={() => onAction("已送入 Douban Matches 队列：LLM 只解释证据，不自动确认")}><Icon n="link" s={11} /> 对比豆瓣候选</button>
       </>
     ) : (
       <>
-        <button className="btn btn--sm"><Icon n="save" s={11} /> 保存视图</button>
-        <button className="btn btn--sm"><Icon n="sparkle" s={11} /> 询问 LLM</button>
-        <button className="btn btn--sm"><Icon n="warn" s={11} /> 质量报告</button>
+        <button className="btn btn--sm" onClick={() => onAction("当前搜索、筛选、排序和列配置已保存为视图草稿")}><Icon n="save" s={11} /> 保存视图</button>
+        <button className="btn btn--sm" onClick={() => onAction("Chat 范围已切到当前筛选结果，可继续自然语言搜索")}><Icon n="sparkle" s={11} /> 询问 LLM</button>
+        <button className="btn btn--sm" onClick={() => onAction("质量报告已生成：缺字段、匹配冲突、封面/译者差异会进入 Data Quality")}><Icon n="warn" s={11} /> 质量报告</button>
       </>
     )}
 
@@ -282,22 +311,43 @@ const PageFoot = ({ total, shown }) => (
 const ShelfPage = ({ query, books, active, setActive, layout, setLayout, sort, setSort }) => {
   const [selected, setSelected] = React.useState(new Set());
   const [view, setView] = React.useState("v-all");
+  const [manualFilters, setManualFilters] = React.useState([]);
+  const [notice, setNotice] = React.useState("");
+  const viewFilters = VIEW_FILTERS[view] || [];
+  const activeFilters = Array.from(new Set([...viewFilters, ...manualFilters]));
+  const filteredBooks = React.useMemo(() => filterBooksByIds(books, activeFilters), [books, activeFilters.join("|")]);
+  const toggleFilter = (id) => {
+    setManualFilters(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const switchView = (id) => {
+    setView(id);
+    setManualFilters([]);
+    setSelected(new Set());
+  };
   return (
     <>
-      <SavedViewTabs views={window.SAVED_VIEWS} active={view} onSelect={setView} />
-      <FilterRow />
+      <SavedViewTabs views={window.SAVED_VIEWS} active={view} onSelect={switchView} />
+      <FilterRow activeFilters={activeFilters} toggleFilter={toggleFilter} />
       <OperationToolbar
         selected={selected.size}
-        totalShown={books.length}
+        totalShown={filteredBooks.length}
         total={89_739}
         layout={layout}
         setLayout={setLayout}
         onClear={() => setSelected(new Set())}
+        onAction={setNotice}
       />
+      {notice && (
+        <div className="op-note">
+          <Icon n="dot" s={10} />
+          <span>{notice}</span>
+          <button onClick={() => setNotice("")}><Icon n="close" s={10} /></button>
+        </div>
+      )}
       {layout === "table"
-        ? <ShelfTable books={books} selected={selected} setSelected={setSelected} active={active} setActive={setActive} sort={sort} setSort={setSort} />
-        : <CoverGrid books={books} active={active} setActive={setActive} />}
-      <PageFoot total={89_739} shown={books.length} />
+        ? <ShelfTable books={filteredBooks} selected={selected} setSelected={setSelected} active={active} setActive={setActive} sort={sort} setSort={setSort} />
+        : <CoverGrid books={filteredBooks} active={active} setActive={setActive} />}
+      <PageFoot total={89_739} shown={filteredBooks.length} />
     </>
   );
 };

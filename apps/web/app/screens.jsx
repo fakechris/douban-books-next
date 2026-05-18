@@ -14,7 +14,10 @@ const TAG_GROUPS = [
 
 const TagsPage = () => {
   const [activeGroup, setActiveGroup] = React.useState("manual");
-  const tags = window.TAG_DEFS.filter(t => t.type === activeGroup);
+  const [tagQuery, setTagQuery] = React.useState("");
+  const tags = window.TAG_DEFS
+    .filter(t => t.type === activeGroup)
+    .filter(t => !tagQuery.trim() || `${t.name} ${t.id} ${t.src || ""}`.toLowerCase().includes(tagQuery.toLowerCase()));
   const [hovered, setHovered] = React.useState(tags[0]?.id);
 
   return (
@@ -55,7 +58,7 @@ const TagsPage = () => {
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
             <div className="tb__search" style={{ flex: 1 }}>
               <span className="tb__search-ic"><Icon n="search" s={13} /></span>
-              <input placeholder="过滤标签…" />
+              <input placeholder="过滤标签…" value={tagQuery} onChange={e => setTagQuery(e.target.value)} />
             </div>
             <button className="btn"><Icon n="plus" s={12} /> 新建标签</button>
             <button className="btn"><Icon n="edit" s={12} /> 合并</button>
@@ -365,4 +368,310 @@ const MatchesPage = () => {
   );
 };
 
-Object.assign(window, { TagsPage, PricesPage, MatchesPage });
+/* =====================================================================
+   Collections: booklists, folders, desktop directories, saved views
+===================================================================== */
+const COLLECTION_TYPE_LABEL = {
+  booklist: "微信书单",
+  folder: "微信文件夹",
+  archive: "归档",
+  directory: "桌面目录",
+  saved: "保存视图",
+  smart: "动态集合",
+};
+
+const collectionBooks = (collection) => window.BOOKS.filter(b => {
+  const titles = window.collectionTitlesForBook?.(b) || [];
+  if (collection.type === "booklist") return titles.includes(collection.title) || (collection.title.includes("AI") && b.tags.some(t => t.id === "ai"));
+  if (collection.type === "directory") return titles.includes(collection.title) || b.category?.includes(collection.title.split("/").pop()?.slice(0, 2));
+  if (collection.type === "saved") return titles.includes(collection.title);
+  if (collection.type === "smart") return b.tags.some(t => t.id === "ai") && b.doubanRating >= 8.5;
+  if (collection.type === "folder") return titles.includes(collection.title) || b.readState === "reading";
+  if (collection.type === "archive") return b.shelfUpdate?.includes("2020") || b.shelfUpdate?.includes("2021");
+  return false;
+});
+
+const CollectionsPage = ({ setRoute, setActive }) => {
+  const [type, setType] = React.useState("booklist");
+  const [activeId, setActiveId] = React.useState(window.COLLECTIONS.find(c => c.type === "booklist")?.id);
+  const groups = Array.from(new Set(window.COLLECTIONS.map(c => c.type)));
+  const visible = window.COLLECTIONS.filter(c => c.type === type);
+  const active = window.COLLECTIONS.find(c => c.id === activeId) || visible[0] || window.COLLECTIONS[0];
+  const books = collectionBooks(active).slice(0, 8);
+
+  return (
+    <div className="page">
+      <div className="page__hd">
+        <div className="page__title">Collections <span style={{ fontSize: 12, color: "var(--mid-2)", fontWeight: 400 }}>· 书单 / 目录 / 保存视图统一入口</span></div>
+        <div className="page__sub">所有组织方式都可以打开成 Shelf 结果列表，并继续搜索、排序、打 tag、加标记。</div>
+      </div>
+      <div className="page__bd" style={{ display: "grid", gridTemplateColumns: "220px 360px 1fr", gap: 18, minHeight: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {groups.map(g => (
+            <button key={g} className="sb__item" aria-current={type === g || undefined} onClick={() => { setType(g); setActiveId(window.COLLECTIONS.find(c => c.type === g)?.id); }}>
+              <span className="sb__item-l">{COLLECTION_TYPE_LABEL[g] || g}</span>
+              <span className="sb__item-c">{window.COLLECTIONS.filter(c => c.type === g).length}</span>
+            </button>
+          ))}
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="card__h"><Icon n="save" s={12} /> 保存视图</div>
+            <div className="card__sub">保存搜索词、筛选、排序、列配置、表格/封面模式。动态集合实时更新。</div>
+          </div>
+        </div>
+
+        <div className="tagm-list" style={{ overflow: "auto" }}>
+          {visible.map(c => (
+            <button key={c.id} className="collection-row" aria-current={active?.id === c.id || undefined} onClick={() => setActiveId(c.id)}>
+              <div style={{ minWidth: 0 }}>
+                <div className="t">{c.title}</div>
+                <div className="m">{COLLECTION_TYPE_LABEL[c.type]} · {c.src} · {c.updated}</div>
+              </div>
+              <span className="num">{c.count.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ overflow: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="card">
+            <div className="card__h">
+              {active.title}
+              <span className="c">{active.count.toLocaleString()}</span>
+            </div>
+            <div className="card__sub">{COLLECTION_TYPE_LABEL[active.type]} · source: {active.src} · updated: {active.updated}</div>
+            <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+              <button className="btn btn--prim" onClick={() => setRoute("shelf")}><Icon n="rows" s={12} /> 作为 Shelf 打开</button>
+              <button className="btn"><Icon n="tag" s={12} /> 批量打 tag</button>
+              <button className="btn"><Icon n="sparkle" s={12} /> 问这个集合</button>
+              <button className="btn"><Icon n="save" s={12} /> 保存副本</button>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="card__h" style={{ padding: "12px 14px", margin: 0, borderBottom: "1px solid var(--hairline)" }}>集合内书目预览</div>
+            {books.map(b => (
+              <div key={b.id} className="watch-row" onClick={() => { setActive(b.id); setRoute("shelf"); }}>
+                <Cover b={b} w={26} h={36} fontSize={9} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
+                  <div style={{ color: "var(--mid)", fontSize: 11.5 }}>{b.author} · {b.category}</div>
+                </div>
+                <div><Price b={b} /></div>
+                <MatchPill s={b.match} />
+                <PlatformBadges p={b.platforms} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* =====================================================================
+   Platforms
+===================================================================== */
+const PlatformsPage = ({ setRoute, setActive }) => {
+  const rows = window.BOOKS.filter(b => b.platforms?.j || b.platforms?.z || b.douban).slice(0, 12);
+  const stats = [
+    ["WeRead", 89739, "主书架与购买状态"],
+    ["Douban", 41802, "评分、出版、标签、跳转"],
+    ["JD Read", 13240, "价格与可购状态"],
+    ["Zhangyue", 8291, "备选平台数据"],
+  ];
+  return (
+    <div className="page">
+      <div className="page__hd">
+        <div className="page__title">Platforms <span style={{ fontSize: 12, color: "var(--mid-2)", fontWeight: 400 }}>· WeRead / Douban / JD / Zhangyue</span></div>
+        <div className="page__sub">跨平台展示用于比价、补全元数据、解释匹配证据。</div>
+      </div>
+      <div className="page__bd">
+        <div className="grid-4" style={{ marginBottom: 16 }}>
+          {stats.map(([name, count, desc]) => (
+            <div className="card" key={name}>
+              <div className="card__h">{name}</div>
+              <div className="card__big">{count.toLocaleString()}</div>
+              <div className="card__sub">{desc}</div>
+            </div>
+          ))}
+        </div>
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="platform-h">
+            <div>书目</div><div>WeRead</div><div>Douban</div><div>JD Read</div><div>Zhangyue</div><div>动作</div>
+          </div>
+          {rows.map(b => (
+            <div key={b.id} className="platform-row">
+              <div style={{ display: "flex", gap: 8, minWidth: 0 }}>
+                <Cover b={b} w={26} h={36} fontSize={9} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="t">{b.title}</div>
+                  <div className="m">{b.author} · {b.category}</div>
+                </div>
+              </div>
+              <div><span className="num">¥{b.price.toFixed(2)}</span><br/><span className="m">{b.paid ? "已购" : "未购"}</span></div>
+              <div>{b.douban ? <><span className="num">{b.doubanRating.toFixed(1)}</span><br/><span className="m">{b.douban}</span></> : <span className="m">未匹配</span>}</div>
+              <div>{b.platforms.j ? <><span className="num" style={{ color: "var(--ok)" }}>¥{(b.price * 0.85).toFixed(2)}</span><br/><span className="m">可购</span></> : <span className="m">—</span>}</div>
+              <div>{b.platforms.z ? <><span className="num">¥{(b.price * 0.92).toFixed(2)}</span><br/><span className="m">可购</span></> : <span className="m">—</span>}</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button className="btn btn--sm" onClick={() => { setActive(b.id); setRoute("shelf"); }}>详情</button>
+                <button className="btn btn--sm"><Icon n="link" s={11} /> 跳转</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* =====================================================================
+   Notes
+===================================================================== */
+const NotesPage = ({ setRoute, setActive }) => {
+  const rows = window.BOOKS.filter(b => b.readState !== "unread" || b.tags.some(t => ["classic", "ai", "history"].includes(t.id))).slice(0, 10);
+  return (
+    <div className="page">
+      <div className="page__hd">
+        <div className="page__title">Notes <span style={{ fontSize: 12, color: "var(--mid-2)", fontWeight: 400 }}>· 笔记 / 划线 / 笔记驱动搜索</span></div>
+        <div className="page__sub">从 notebook books、划线、评论摘要中反向找到值得重读或补 metadata 的书。</div>
+      </div>
+      <div className="page__bd" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 18, overflow: "hidden" }}>
+        <div className="card" style={{ padding: 0, overflow: "auto" }}>
+          {rows.map((b, i) => (
+            <div key={b.id} className="note-row" onClick={() => { setActive(b.id); setRoute("shelf"); }}>
+              <Cover b={b} w={28} h={40} fontSize={9} />
+              <div style={{ minWidth: 0 }}>
+                <div className="t">{b.title}</div>
+                <div className="quote">“{["这本书适合和价格关注列表联动。", "可以作为标签 AI / 历史 / 经典 的代表书。", "豆瓣匹配确认后可用于提升搜索排序。"][i % 3]}”</div>
+                <div className="m">{b.author} · 笔记 {12 + i * 3} · 划线 {48 + i * 7}</div>
+              </div>
+              <MatchPill s={b.match} />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="card">
+            <div className="card__h"><Icon n="search" s={12} /> 笔记搜索</div>
+            <div className="card__sub">搜索笔记文本、书名、tag、书单名。结果可回到 Shelf 继续筛选。</div>
+            <div className="tb__search" style={{ marginTop: 10 }}>
+              <span className="tb__search-ic"><Icon n="search" s={13} /></span>
+              <input placeholder="搜索划线、笔记、评论…" />
+            </div>
+          </div>
+          <div className="card">
+            <div className="card__h"><Icon n="sparkle" s={12} /> LLM 用法</div>
+            <div className="card__sub">总结一个 tag/书单里的笔记主题；把笔记关键词转成筛选条件；给一批书生成重读理由。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* =====================================================================
+   Data Quality
+===================================================================== */
+const DataQualityPage = ({ setRoute, setActive }) => {
+  const issues = window.BOOKS
+    .filter(b => ["missing", "conflict", "candidate", "review"].includes(b.match) || (b.conflicts || []).length || b.words === 0 || b.weReadRating === 0)
+    .slice(0, 12);
+  const issueLabel = (b) => {
+    if (b.match === "missing") return "豆瓣缺失";
+    if (b.match === "conflict") return "匹配冲突";
+    if ((b.conflicts || []).includes("translator")) return "译者冲突";
+    if ((b.conflicts || []).includes("cover")) return "封面冲突";
+    if (b.words === 0) return "字数缺失";
+    return "待审核";
+  };
+  return (
+    <div className="page">
+      <div className="page__hd">
+        <div className="page__title">Data Quality <span style={{ fontSize: 12, color: "var(--mid-2)", fontWeight: 400 }}>· 缺失 / 冲突 / 候选 / 过期</span></div>
+        <div className="page__sub">把数据问题变成可筛选、可分派、可由 LLM 解释但需人工确认的工作队列。</div>
+      </div>
+      <div className="page__bd">
+        <div className="grid-4" style={{ marginBottom: 16 }}>
+          <div className="card"><div className="card__h">匹配缺失</div><div className="card__big" style={{ color: "var(--bad)" }}>35,493</div><div className="card__sub">需要候选检索或跳过</div></div>
+          <div className="card"><div className="card__h">字段冲突</div><div className="card__big" style={{ color: "var(--warn)" }}>132</div><div className="card__sub">作者、译者、封面、出版</div></div>
+          <div className="card"><div className="card__h">缺元数据</div><div className="card__big">481</div><div className="card__sub">封面、字数、价格、评分</div></div>
+          <div className="card"><div className="card__h">可自动补全</div><div className="card__big" style={{ color: "var(--ok)" }}>219</div><div className="card__sub">先保存 source_records</div></div>
+        </div>
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          {issues.map(b => (
+            <div key={b.id} className="quality-row" onClick={() => { setActive(b.id); setRoute("shelf"); }}>
+              <Cover b={b} w={28} h={40} fontSize={9} />
+              <div style={{ minWidth: 0 }}>
+                <div className="t">{b.title}</div>
+                <div className="m">{b.author} · {b.publisher || "出版社缺失"} · {b.category}</div>
+              </div>
+              <span className="pill" style={{ color: "var(--bad)", background: "var(--bad-bg)", borderColor: "transparent" }}>{issueLabel(b)}</span>
+              <MatchPill s={b.match} />
+              <div style={{ display: "flex", gap: 4 }}>
+                <button className="btn btn--sm"><Icon n="sparkle" s={11} /> 解释</button>
+                <button className="btn btn--sm"><Icon n="wand" s={11} /> 补全</button>
+                <button className="btn btn--sm"><Icon n="check" s={11} /> 跳过</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* =====================================================================
+   Sync Runs
+===================================================================== */
+const SyncRunsPage = () => {
+  const runs = [
+    { name: "weread_mobile / shelf/syncbook", status: "ok", count: "90 batches", raw: "source_records +91", time: "今天 09:42", note: "auth redacted · projected" },
+    { name: "weread_mobile / shelf/sync-onlyBookid", status: "ok", count: "90,231 ids", raw: "source_records +1", time: "今天 09:21", note: "archive membership" },
+    { name: "weread_web / notebook", status: "ok", count: "1,643 books", raw: "source_records +1", time: "昨天 23:12", note: "notes available" },
+    { name: "weread_web / shelf/sync", status: "warn", count: "timeout", raw: "source_records +1", time: "昨天 22:58", note: "upstream 3s timeout" },
+    { name: "legacy_mysql / purchase", status: "ok", count: "12,408 rows", raw: "source_records", time: "迁移阶段", note: "read-only import" },
+  ];
+  return (
+    <div className="page">
+      <div className="page__hd">
+        <div className="page__title">Sync Runs <span style={{ fontSize: 12, color: "var(--mid-2)", fontWeight: 400 }}>· raw first, projection second</span></div>
+        <div className="page__sub">同步和补全都必须先保存原始响应，再投影到 UI read model。</div>
+      </div>
+      <div className="page__bd" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 18, overflow: "hidden" }}>
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          {runs.map(r => (
+            <div key={r.name} className="sync-row">
+              <span className="sync-dot" data-status={r.status} />
+              <div>
+                <div className="t">{r.name}</div>
+                <div className="m">{r.note}</div>
+              </div>
+              <div className="num">{r.count}</div>
+              <div>{r.raw}</div>
+              <div className="m">{r.time}</div>
+              <button className="btn btn--sm">证据</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="card">
+            <div className="card__h"><Icon n="sync" s={12} /> 手动同步</div>
+            <div className="card__sub">触发 WeRead mobile `skey` 路径、Skill 补全或仅投影已有 raw payload。</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+              <button className="btn btn--prim"><Icon n="sync" s={12} /> 同步当前书架</button>
+              <button className="btn"><Icon n="wand" s={12} /> 只补选中书详情</button>
+              <button className="btn"><Icon n="rows" s={12} /> 重跑 projection</button>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card__h"><Icon n="warn" s={12} /> 安全约束</div>
+            <div className="card__sub">request metadata 中 skey/cookie/vid 必须脱敏；raw payload 保留，业务表只保存投影结果。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+Object.assign(window, {
+  TagsPage, PricesPage, MatchesPage,
+  CollectionsPage, PlatformsPage, NotesPage, DataQualityPage, SyncRunsPage,
+});

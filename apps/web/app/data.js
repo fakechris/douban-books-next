@@ -49,6 +49,19 @@ window.COLLECTIONS = [
   { id: "smart-llm",   type: "smart",     title: "LLM 相关 + 豆瓣 8.5+", count: 47, src: "smart", updated: "实时" },
 ];
 
+window.collectionTitlesForBook = (book) => {
+  const titles = [];
+  if (!book) return titles;
+  if ((book.tags || []).some(t => t.id === "ai" || t.id === "cs")) titles.push("AI / Agents", "/Books/计算机", "LLM 相关 + 豆瓣 8.5+");
+  if ((book.tags || []).some(t => t.id === "history")) titles.push("必读清单", "/Books/中文/历史");
+  if ((book.tags || []).some(t => t.id === "lit")) titles.push("床头柜");
+  if ((book.tags || []).some(t => t.id === "cheap") || (book.paid && book.price <= 30 && book.readState !== "finished")) titles.push("便宜已购待读");
+  if ((book.marks || []).includes("watch") || (book.tags || []).some(t => t.id === "watch" || t.id === "wantbuy")) titles.push("贵+高分+未购");
+  if (book.match === "confirmed" || book.match === "imported") titles.push("豆瓣已匹配");
+  if (book.match === "missing" || book.match === "conflict" || (book.conflicts || []).length > 0) titles.push("Data quality 修复队列");
+  return Array.from(new Set(titles));
+};
+
 const T = window.TAG_DEFS.reduce((a,t)=>{a[t.id]=t; return a;}, {});
 
 function tag(...ids) { return ids.map(id => T[id]).filter(Boolean); }

@@ -1,5 +1,6 @@
 /* global React, ReactDOM, Sidebar, Topbar, ShelfPage, Drawer,
           TagsPage, PricesPage, MatchesPage, ChatPage, Icon,
+          CollectionsPage, PlatformsPage, NotesPage, DataQualityPage, SyncRunsPage,
           TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakToggle */
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -28,12 +29,23 @@ const App = () => {
     let bs = window.BOOKS.slice();
     if (query.trim()) {
       const q = query.toLowerCase();
+      const platformText = (b) => Object.entries(b.platforms || {})
+        .filter(([, on]) => on)
+        .map(([k]) => ({ w: "weread 微信", d: "douban 豆瓣", j: "jd 京东", z: "zhangyue 掌阅" }[k] || k))
+        .join(" ");
+      const collectionText = (b) => (window.collectionTitlesForBook?.(b) || []).join(" ");
       bs = bs.filter(b =>
         b.title.toLowerCase().includes(q) ||
         (b.author || "").toLowerCase().includes(q) ||
         (b.translator || "").toLowerCase().includes(q) ||
+        (b.publisher || "").toLowerCase().includes(q) ||
+        (b.category || "").toLowerCase().includes(q) ||
+        (b.douban || "").includes(q) ||
         (b.isbn || "").includes(q) ||
-        (b.tags || []).some(x => (x.name || "").toLowerCase().includes(q))
+        (b.tags || []).some(x => (x.name || "").toLowerCase().includes(q)) ||
+        (b.marks || []).some(x => String(x).toLowerCase().includes(q)) ||
+        platformText(b).toLowerCase().includes(q) ||
+        collectionText(b).toLowerCase().includes(q)
       );
     }
     bs.sort((a, b) => {
@@ -108,11 +120,11 @@ const App = () => {
         {route === "prices"   && <PricesPage setRoute={setRoute} setActive={setActive} />}
         {route === "matches"  && <MatchesPage />}
         {route === "chat"     && <ChatPage />}
-        {route === "collections" && <StubPage title="Collections" body="书单 · 归档 · 桌面目录 · 保存的视图 · 手工集 · 动态集合 — 统一入口" />}
-        {route === "platforms"   && <StubPage title="Platforms"  body="WeRead · Douban · JD Read · Zhangyue — 同一书的跨平台对照" />}
-        {route === "notes"       && <StubPage title="Notes"      body="笔记本 · 划线 · 笔记驱动的搜索" />}
-        {route === "quality"     && <StubPage title="Data Quality" body="缺失字段 · 字段冲突 · 候选重复 · 过期记录" />}
-        {route === "sync"        && <StubPage title="Sync Runs"  body="raw 入库 · projection 状态 · 错误" />}
+        {route === "collections" && <CollectionsPage setRoute={setRoute} setActive={setActive} />}
+        {route === "platforms"   && <PlatformsPage setRoute={setRoute} setActive={setActive} />}
+        {route === "notes"       && <NotesPage setRoute={setRoute} setActive={setActive} />}
+        {route === "quality"     && <DataQualityPage setRoute={setRoute} setActive={setActive} />}
+        {route === "sync"        && <SyncRunsPage />}
 
         {/* floating chat */}
         {route !== "chat" && t.rightChat && (
