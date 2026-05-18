@@ -1262,6 +1262,29 @@ tr:hover .row-actions { opacity: 1; }
   cursor: pointer;
 }
 
+.api-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--mid);
+  background: var(--panel);
+  white-space: nowrap;
+}
+.api-chip--live {
+  color: var(--ok);
+  border-color: color-mix(in oklab, var(--ok) 25%, var(--line));
+  background: color-mix(in oklab, var(--ok) 8%, var(--panel));
+}
+.api-chip--loading {
+  color: var(--warn);
+  border-color: color-mix(in oklab, var(--warn) 25%, var(--line));
+}
+.api-chip--fallback {
+  color: var(--bad);
+  border-color: color-mix(in oklab, var(--bad) 25%, var(--line));
+}
+
 .collection-row,
 .platform-row,
 .note-row,

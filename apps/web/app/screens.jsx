@@ -392,11 +392,24 @@ const collectionBooks = (collection) => window.BOOKS.filter(b => {
 });
 
 const CollectionsPage = ({ setRoute, setActive }) => {
+  const [remoteCollections, setRemoteCollections] = React.useState(window.COLLECTIONS);
   const [type, setType] = React.useState("booklist");
   const [activeId, setActiveId] = React.useState(window.COLLECTIONS.find(c => c.type === "booklist")?.id);
-  const groups = Array.from(new Set(window.COLLECTIONS.map(c => c.type)));
-  const visible = window.COLLECTIONS.filter(c => c.type === type);
-  const active = window.COLLECTIONS.find(c => c.id === activeId) || visible[0] || window.COLLECTIONS[0];
+  React.useEffect(() => {
+    window.Api.collections().then(data => {
+      const rows = (data.collections || []).map(c => ({
+        id: c.id, type: c.type, title: c.name, count: c.count || 0,
+        src: c.source, updated: c.updated_at ? new Date(c.updated_at).toLocaleDateString() : "—",
+      }));
+      if (rows.length) {
+        setRemoteCollections(rows);
+        setActiveId(rows.find(c => c.type === "booklist")?.id || rows[0].id);
+      }
+    }).catch(console.error);
+  }, []);
+  const groups = Array.from(new Set(remoteCollections.map(c => c.type)));
+  const visible = remoteCollections.filter(c => c.type === type);
+  const active = remoteCollections.find(c => c.id === activeId) || visible[0] || remoteCollections[0];
   const books = collectionBooks(active).slice(0, 8);
 
   return (
@@ -471,7 +484,12 @@ const CollectionsPage = ({ setRoute, setActive }) => {
    Platforms
 ===================================================================== */
 const PlatformsPage = ({ setRoute, setActive }) => {
-  const rows = window.BOOKS.filter(b => b.platforms?.j || b.platforms?.z || b.douban).slice(0, 12);
+  const [rows, setRows] = React.useState(window.BOOKS.filter(b => b.platforms?.j || b.platforms?.z || b.douban).slice(0, 12));
+  React.useEffect(() => {
+    window.Api.shelf({ limit: 100, platform: "douban", sort: "price", direction: "desc" })
+      .then(data => setRows(data.items.slice(0, 12)))
+      .catch(console.error);
+  }, []);
   const stats = [
     ["WeRead", 89739, "主书架与购买状态"],
     ["Douban", 41802, "评分、出版、标签、跳转"],
@@ -527,7 +545,10 @@ const PlatformsPage = ({ setRoute, setActive }) => {
    Notes
 ===================================================================== */
 const NotesPage = ({ setRoute, setActive }) => {
-  const rows = window.BOOKS.filter(b => b.readState !== "unread" || b.tags.some(t => ["classic", "ai", "history"].includes(t.id))).slice(0, 10);
+  const [rows, setRows] = React.useState([]);
+  React.useEffect(() => {
+    window.Api.notes().then(data => setRows(data.notes || [])).catch(console.error);
+  }, []);
   return (
     <div className="page">
       <div className="page__hd">
@@ -536,17 +557,19 @@ const NotesPage = ({ setRoute, setActive }) => {
       </div>
       <div className="page__bd" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 18, overflow: "hidden" }}>
         <div className="card" style={{ padding: 0, overflow: "auto" }}>
-          {rows.map((b, i) => (
-            <div key={b.id} className="note-row" onClick={() => { setActive(b.id); setRoute("shelf"); }}>
+          {(rows.length ? rows : window.BOOKS.slice(0, 8).map(b => ({ weread_book_id: b.id, title: b.title, author_text: b.author, mark_text: "暂无真实笔记，展示书目占位", note_type: "placeholder" }))).map((n, i) => {
+            const b = { id: n.weread_book_id, title: n.title, author: n.author_text, cover: i % 8, match: "missing" };
+            return (
+            <div key={n.id || n.weread_book_id || i} className="note-row" onClick={() => { setActive(n.weread_book_id); setRoute("shelf"); }}>
               <Cover b={b} w={28} h={40} fontSize={9} />
               <div style={{ minWidth: 0 }}>
-                <div className="t">{b.title}</div>
-                <div className="quote">“{["这本书适合和价格关注列表联动。", "可以作为标签 AI / 历史 / 经典 的代表书。", "豆瓣匹配确认后可用于提升搜索排序。"][i % 3]}”</div>
-                <div className="m">{b.author} · 笔记 {12 + i * 3} · 划线 {48 + i * 7}</div>
+                <div className="t">{n.title}</div>
+                <div className="quote">“{n.mark_text || n.note_text || n.review_text || "暂无文本"}”</div>
+                <div className="m">{n.author_text || "—"} · {n.note_type} · {n.chapter_title || "未分章"}</div>
               </div>
-              <MatchPill s={b.match} />
+              <MatchPill s="missing" />
             </div>
-          ))}
+          );})}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="card">
@@ -571,9 +594,13 @@ const NotesPage = ({ setRoute, setActive }) => {
    Data Quality
 ===================================================================== */
 const DataQualityPage = ({ setRoute, setActive }) => {
-  const issues = window.BOOKS
+  const [remoteIssues, setRemoteIssues] = React.useState([]);
+  React.useEffect(() => {
+    window.Api.quality(50).then(data => setRemoteIssues(data.items || [])).catch(console.error);
+  }, []);
+  const issues = (remoteIssues.length ? remoteIssues : window.BOOKS
     .filter(b => ["missing", "conflict", "candidate", "review"].includes(b.match) || (b.conflicts || []).length || b.words === 0 || b.weReadRating === 0)
-    .slice(0, 12);
+    .slice(0, 12));
   const issueLabel = (b) => {
     if (b.match === "missing") return "豆瓣缺失";
     if (b.match === "conflict") return "匹配冲突";
@@ -622,13 +649,25 @@ const DataQualityPage = ({ setRoute, setActive }) => {
    Sync Runs
 ===================================================================== */
 const SyncRunsPage = () => {
-  const runs = [
+  const [remoteRuns, setRemoteRuns] = React.useState([]);
+  React.useEffect(() => {
+    window.Api.syncRuns().then(data => setRemoteRuns(data.runs || [])).catch(console.error);
+  }, []);
+  const fallbackRuns = [
     { name: "weread_mobile / shelf/syncbook", status: "ok", count: "90 batches", raw: "source_records +91", time: "今天 09:42", note: "auth redacted · projected" },
     { name: "weread_mobile / shelf/sync-onlyBookid", status: "ok", count: "90,231 ids", raw: "source_records +1", time: "今天 09:21", note: "archive membership" },
     { name: "weread_web / notebook", status: "ok", count: "1,643 books", raw: "source_records +1", time: "昨天 23:12", note: "notes available" },
     { name: "weread_web / shelf/sync", status: "warn", count: "timeout", raw: "source_records +1", time: "昨天 22:58", note: "upstream 3s timeout" },
     { name: "legacy_mysql / purchase", status: "ok", count: "12,408 rows", raw: "source_records", time: "迁移阶段", note: "read-only import" },
   ];
+  const runs = remoteRuns.length ? remoteRuns.map(r => ({
+    name: `${r.source_system} / ${r.source_name}`,
+    status: "ok",
+    count: `${r.count} records`,
+    raw: "source_records",
+    time: r.latest_imported_at ? new Date(r.latest_imported_at).toLocaleString() : "—",
+    note: r.latest_fetched_at ? `fetched ${new Date(r.latest_fetched_at).toLocaleString()}` : "imported",
+  })) : fallbackRuns;
   return (
     <div className="page">
       <div className="page__hd">

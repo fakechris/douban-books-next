@@ -91,7 +91,7 @@ const FilterRow = ({ activeFilters, toggleFilter }) => (
 );
 
 /* ----- Operation toolbar ---------------------------------------------- */
-const OperationToolbar = ({ selected, totalShown, total, layout, setLayout, onClear, onAction }) => (
+const OperationToolbar = ({ selected, selectedIds, totalShown, total, layout, setLayout, onClear, onAction, onChanged }) => (
   <div className="op">
     <span className="op__count">
       <strong>{totalShown.toLocaleString()}</strong> <span style={{ color: "var(--mid)", fontWeight: 400 }}>· 共 {total.toLocaleString()} 本</span>
@@ -106,8 +106,8 @@ const OperationToolbar = ({ selected, totalShown, total, layout, setLayout, onCl
 
     {selected > 0 ? (
       <>
-        <button className="btn btn--sm" onClick={() => onAction("已打开批量标签操作：会向选中书目添加/移除 manual tag")}><Icon n="tag" s={11} /> 编辑标签</button>
-        <button className="btn btn--sm" onClick={() => onAction("已准备添加特殊标记：购买关注 / 价格关注 / 待补全")}><Icon n="flag" s={11} /> 添加标记</button>
+        <button className="btn btn--sm" onClick={async () => { await window.Api.addTags(selectedIds, ["待整理"]); onAction(`已写入本地数据库：${selected} 本添加 tag「待整理」`); onChanged?.(); }}><Icon n="tag" s={11} /> 编辑标签</button>
+        <button className="btn btn--sm" onClick={async () => { await window.Api.addMark(selectedIds, "purchase_watch", "Added from shelf operation toolbar"); onAction(`已写入本地数据库：${selected} 本添加特殊标记 purchase_watch`); onChanged?.(); }}><Icon n="flag" s={11} /> 添加标记</button>
         <button className="btn btn--sm" onClick={() => onAction("已准备加入集合：微信书单、桌面目录或保存视图")}><Icon n="folder" s={11} /> 加入集合</button>
         <button className="btn btn--sm" onClick={() => onAction("Chat 范围已切到选中书目，可请求总结、打标或比较")}><Icon n="sparkle" s={11} /> 询问 LLM</button>
         <button className="btn btn--sm" onClick={() => onAction("元数据补全会先写入 source_records，再投影到列表字段")}><Icon n="wand" s={11} /> 补全元数据</button>
@@ -115,7 +115,7 @@ const OperationToolbar = ({ selected, totalShown, total, layout, setLayout, onCl
       </>
     ) : (
       <>
-        <button className="btn btn--sm" onClick={() => onAction("当前搜索、筛选、排序和列配置已保存为视图草稿")}><Icon n="save" s={11} /> 保存视图</button>
+        <button className="btn btn--sm" onClick={async () => { await window.Api.saveView(`视图 ${new Date().toLocaleTimeString()}`, { source: "shelf-toolbar", totalShown }); onAction("已写入本地数据库：当前查询保存到 saved_views"); }}><Icon n="save" s={11} /> 保存视图</button>
         <button className="btn btn--sm" onClick={() => onAction("Chat 范围已切到当前筛选结果，可继续自然语言搜索")}><Icon n="sparkle" s={11} /> 询问 LLM</button>
         <button className="btn btn--sm" onClick={() => onAction("质量报告已生成：缺字段、匹配冲突、封面/译者差异会进入 Data Quality")}><Icon n="warn" s={11} /> 质量报告</button>
       </>
@@ -308,7 +308,7 @@ const PageFoot = ({ total, shown }) => (
 );
 
 /* ----- The whole Shelf page ------------------------------------------- */
-const ShelfPage = ({ query, books, active, setActive, layout, setLayout, sort, setSort }) => {
+const ShelfPage = ({ query, books, active, setActive, layout, setLayout, sort, setSort, total = 89_739, onChanged }) => {
   const [selected, setSelected] = React.useState(new Set());
   const [view, setView] = React.useState("v-all");
   const [manualFilters, setManualFilters] = React.useState([]);
@@ -330,12 +330,14 @@ const ShelfPage = ({ query, books, active, setActive, layout, setLayout, sort, s
       <FilterRow activeFilters={activeFilters} toggleFilter={toggleFilter} />
       <OperationToolbar
         selected={selected.size}
+        selectedIds={Array.from(selected)}
         totalShown={filteredBooks.length}
-        total={89_739}
+        total={total}
         layout={layout}
         setLayout={setLayout}
         onClear={() => setSelected(new Set())}
         onAction={setNotice}
+        onChanged={onChanged}
       />
       {notice && (
         <div className="op-note">
@@ -347,7 +349,7 @@ const ShelfPage = ({ query, books, active, setActive, layout, setLayout, sort, s
       {layout === "table"
         ? <ShelfTable books={filteredBooks} selected={selected} setSelected={setSelected} active={active} setActive={setActive} sort={sort} setSort={setSort} />
         : <CoverGrid books={filteredBooks} active={active} setActive={setActive} />}
-      <PageFoot total={89_739} shown={filteredBooks.length} />
+      <PageFoot total={total} shown={filteredBooks.length} />
     </>
   );
 };

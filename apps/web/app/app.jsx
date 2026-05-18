@@ -18,6 +18,10 @@ const App = () => {
   const [active, setActive] = React.useState("3300290981"); // pre-selected for first impression
   const [chatOpen, setChatOpen] = React.useState(false);
   const [sort, setSort] = React.useState({ key: "doubanRating", dir: "desc" });
+  const [remoteBooks, setRemoteBooks] = React.useState(window.BOOKS || []);
+  const [remoteTotal, setRemoteTotal] = React.useState((window.BOOKS || []).length);
+  const [apiStatus, setApiStatus] = React.useState("connecting");
+  const [reloadSeq, setReloadSeq] = React.useState(0);
 
   // apply density + accent to <html>
   React.useEffect(() => {
@@ -25,41 +29,26 @@ const App = () => {
     document.documentElement.dataset.accent  = t.accent;
   }, [t.density, t.accent]);
 
-  const books = React.useMemo(() => {
-    let bs = window.BOOKS.slice();
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      const platformText = (b) => Object.entries(b.platforms || {})
-        .filter(([, on]) => on)
-        .map(([k]) => ({ w: "weread 微信", d: "douban 豆瓣", j: "jd 京东", z: "zhangyue 掌阅" }[k] || k))
-        .join(" ");
-      const collectionText = (b) => (window.collectionTitlesForBook?.(b) || []).join(" ");
-      bs = bs.filter(b =>
-        b.title.toLowerCase().includes(q) ||
-        (b.author || "").toLowerCase().includes(q) ||
-        (b.translator || "").toLowerCase().includes(q) ||
-        (b.publisher || "").toLowerCase().includes(q) ||
-        (b.category || "").toLowerCase().includes(q) ||
-        (b.douban || "").includes(q) ||
-        (b.isbn || "").includes(q) ||
-        (b.tags || []).some(x => (x.name || "").toLowerCase().includes(q)) ||
-        (b.marks || []).some(x => String(x).toLowerCase().includes(q)) ||
-        platformText(b).toLowerCase().includes(q) ||
-        collectionText(b).toLowerCase().includes(q)
-      );
-    }
-    bs.sort((a, b) => {
-      const k = sort.key;
-      let va = a[k], vb = b[k];
-      if (k === "shelfUpdate" || k === "readUpdate") { va = String(va); vb = String(vb); }
-      if (va == null) va = -1;
-      if (vb == null) vb = -1;
-      if (va < vb) return sort.dir === "asc" ? -1 : 1;
-      if (va > vb) return sort.dir === "asc" ?  1 : -1;
-      return 0;
-    });
-    return bs;
-  }, [query, sort]);
+  React.useEffect(() => {
+    let cancelled = false;
+    setApiStatus("loading");
+    window.Api.shelf({ q: query, sort: sort.key, direction: sort.dir, limit: 300 })
+      .then(data => {
+        if (cancelled) return;
+        setRemoteBooks(data.items);
+        setRemoteTotal(data.total || data.items.length);
+        if (!data.items.find(b => b.id === active) && data.items[0]) setActive(data.items[0].id);
+        setApiStatus("live");
+      })
+      .catch(error => {
+        if (cancelled) return;
+        console.error(error);
+        setApiStatus("fallback");
+      });
+    return () => { cancelled = true; };
+  }, [query, sort.key, sort.dir, reloadSeq]);
+
+  const books = remoteBooks;
 
   const activeBook = books.find(b => b.id === active) || window.BOOKS.find(b => b.id === active);
 
@@ -92,6 +81,9 @@ const App = () => {
             right={
               <>
                 <button className="btn"><Icon n="filter" s={12} /> 高级筛选</button>
+                <span className={"api-chip api-chip--" + apiStatus}>
+                  {apiStatus === "live" ? "PostgreSQL live" : apiStatus === "loading" ? "loading DB" : apiStatus === "fallback" ? "mock fallback" : "connecting"}
+                </span>
                 <button
                   className="btn"
                   onClick={() => setTweak("drawerOpen", !t.drawerOpen)}
@@ -114,6 +106,8 @@ const App = () => {
             setLayout={(v) => setTweak("layout", v)}
             sort={sort}
             setSort={setSort}
+            total={remoteTotal}
+            onChanged={() => setReloadSeq(x => x + 1)}
           />
         )}
         {route === "tags"     && <TagsPage />}

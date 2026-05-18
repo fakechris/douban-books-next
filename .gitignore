@@ -18,6 +18,7 @@ backups/
 backup/
 *.bson
 *.sql
+!apps/api/sql/*.sql
 *.sqlite
 *.db
 *.dump

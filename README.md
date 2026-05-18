@@ -69,3 +69,18 @@ Current shelf sync source:
 2. Frontend shelf table/grid with dense operational controls.
 3. Detail drawer for book metadata, purchase state, reading state, matches, and raw evidence.
 4. Manual sync trigger that stores raw payloads first, then projects.
+
+## Local App
+
+The current implementation runs as a local Node/Express app backed by the
+PostgreSQL database `weread_douban_migration`.
+
+```bash
+npm install
+npm run db:migrate
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. The app serves the frontend and `/api/*` from the
+same process. Shelf reads come from PostgreSQL; tag, mark, and saved-view
+operations write back to the local workspace tables.

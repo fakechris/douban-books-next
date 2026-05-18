@@ -1,0 +1,14 @@
+{
+  "name": "douban-books-next",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node apps/api/server.js",
+    "db:migrate": "sh scripts/migrate-local-db.sh"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}

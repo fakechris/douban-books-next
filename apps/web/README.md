@@ -1,22 +1,24 @@
 # Web App
 
-This directory contains the imported interactive prototype for the rebuilt
-WeRead/Douban bookshelf workspace. It is currently a static React prototype
-using browser-loaded React/Babel so designers can review and iterate without a
-build step.
+This directory contains the browser UI for the rebuilt WeRead/Douban bookshelf
+workspace. It keeps the imported prototype's UI/UE, but now reads and writes
+through the local API backed by PostgreSQL.
 
 ## Run Locally
 
-From this directory:
+From the repository root:
 
 ```bash
-python3 -m http.server 5173
+npm install
+npm run db:migrate
+npm run dev
 ```
 
 Then open `http://localhost:5173`.
 
-Do not open `index.html` directly from the filesystem for review. The prototype
-loads JSX files dynamically, so serving it over HTTP is more reliable.
+Do not open `index.html` directly from the filesystem. The app must be served by
+`apps/api/server.js` so `/api/*` can read and write the local PostgreSQL
+database.
 
 ## Primary Screens
 
